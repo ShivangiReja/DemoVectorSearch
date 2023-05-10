@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Azure.Search.Documents.Models;
 using NUnit.Framework;
-using Vector = Azure.Search.Documents.Models.Vector;
 
 namespace Azure.Search.Documents.Tests.Samples
 {
@@ -53,13 +52,13 @@ namespace Azure.Search.Documents.Tests.Samples
             await SimpleHybridSearch(searchClient, openAIClient);
         }
 
-        internal static async Task<IList<float>> VectorizeAsync(OpenAIClient openAIClient, string text)
+        internal static async Task<IReadOnlyList<float>> VectorizeAsync(OpenAIClient openAIClient, string text)
         {
             EmbeddingsOptions embeddingsOptions = new(text);
             Embeddings embeddings = await openAIClient.GetEmbeddingsAsync(ModelName, embeddingsOptions);
 
             // TODO: ToList() is unnecessarily expensive. We need to rationalize the Open AI output and Search input before GA.
-            return embeddings.Data[0].Embedding.ToList();
+            return embeddings.Data[0].Embedding;
         }
 
         internal static SearchIndex GetHotelIndex(string name)
@@ -95,13 +94,12 @@ namespace Azure.Search.Documents.Tests.Samples
 
         internal static async Task SingleVectorSearch(SearchClient client, OpenAIClient openAIClient)
         {
-            IList<float> vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
+            var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
             Assert.GreaterOrEqual(vectorizedResult.Count, 1);
             await Task.Delay(TimeSpan.FromSeconds(1));
 
-            var vector = new Vector { K = 3, Fields = "DescriptionVector" };
-            foreach (var v in vectorizedResult) { vector.Value.Add(v); }
+            var vector = new SearchQueryVector { Value = vectorizedResult, K = 3, Fields = "DescriptionVector" };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
                    null,
                    new SearchOptions
@@ -122,12 +120,11 @@ namespace Azure.Search.Documents.Tests.Samples
 
         internal static async Task SingleVectorSearchWithFilter(SearchClient client, OpenAIClient openAIClient)
         {
-            IList<float> vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
+            var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
             Assert.GreaterOrEqual(vectorizedResult.Count, 1);
 
-            var vector = new Vector { K = 3, Fields = "DescriptionVector" };
-            foreach (var v in vectorizedResult) { vector.Value.Add(v); }
+            var vector = new SearchQueryVector { Value = vectorizedResult, K = 3, Fields = "DescriptionVector" };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
                     null,
                     new SearchOptions
@@ -149,12 +146,11 @@ namespace Azure.Search.Documents.Tests.Samples
 
         internal static async Task SimpleHybridSearch(SearchClient client, OpenAIClient openAIClient)
         {
-            IList<float> vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
+            var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
             Assert.GreaterOrEqual(vectorizedResult.Count, 1);
 
-            var vector = new Vector { K = 3, Fields = "DescriptionVector" };
-            foreach (var v in vectorizedResult) { vector.Value.Add(v); }
+            var vector = new SearchQueryVector { Value = vectorizedResult, K = 3, Fields = "DescriptionVector" };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
                     "Top hotels in town",
                     new SearchOptions
@@ -178,7 +174,7 @@ namespace Azure.Search.Documents.Tests.Samples
             public string HotelId { get; set; }
             public string HotelName { get; set; }
             public string Description { get; set; }
-            public IList<float> DescriptionVector { get; set; }
+            public IReadOnlyList<float> DescriptionVector { get; set; }
             public string Category { get; set; }
 
             public override bool Equals(object obj) =>
