@@ -131,6 +131,7 @@ namespace Azure.Search.Documents.Tests.Samples
                    });
 
             int count = 0;
+            Console.WriteLine($"\nSingle Vector Search Results:");
             await foreach (SearchResult<Hotel> result in response.GetResultsAsync())
             {
                 count++;
@@ -157,6 +158,7 @@ namespace Azure.Search.Documents.Tests.Samples
                     });
 
             int count = 0;
+            Console.WriteLine($"\nSingle Vector Search With Filter Results:");
             await foreach (SearchResult<Hotel> result in response.GetResultsAsync())
             {
                 count++;
@@ -182,6 +184,7 @@ namespace Azure.Search.Documents.Tests.Samples
                     });
 
             int count = 0;
+            Console.WriteLine($"\nSimple Hybrid Search Results:");
             await foreach (SearchResult<Hotel> result in response.GetResultsAsync())
             {
                 count++;
@@ -203,7 +206,7 @@ namespace Azure.Search.Documents.Tests.Samples
                     new SearchOptions
                     {
                         Vector = vector,
-                        Select = { "HotelId", "HotelName" },
+                        Select = { "HotelId", "HotelName", "Description", "Category" },
                         QueryType = SearchQueryType.Semantic,
                         QueryLanguage = QueryLanguage.EnUs,
                         SemanticConfigurationName = SemanticSearchConfigName,
@@ -213,13 +216,28 @@ namespace Azure.Search.Documents.Tests.Samples
                     });
 
             int count = 0;
+            Console.WriteLine($"\nSemantic Hybrid Search Results:");
             await foreach (SearchResult<Hotel> result in response.GetResultsAsync())
             {
                 count++;
                 Hotel doc = result.Document;
-                Console.WriteLine($"{doc.HotelId}: {doc.HotelName}");
+                Console.WriteLine($"\nHotelId: {doc.HotelId} \n HotelName: {doc.HotelName} \n Category: {doc.Category} \n Description: {doc.Description}");
+
+                if (result.Captions != null)
+                {
+                    var caption = result.Captions.FirstOrDefault();
+                    if(caption.Highlights != null && caption.Highlights != "")
+                    {
+                        Console.WriteLine($"Caption Highlights: {caption.Highlights}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Caption Text: {caption.Text}");
+                    }
+                }
             }
-            Assert.AreEqual(4, count); // HotelId - 3, 1, 5, 2
+
+            Assert.AreEqual(4, count); // HotelId - 1, 2, 5, 3
         }
 
         internal class Hotel
