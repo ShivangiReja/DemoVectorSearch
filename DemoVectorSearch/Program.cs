@@ -17,6 +17,7 @@ namespace Azure.Search.Documents.Tests.Samples
     {
         private const string ModelName = "text-embedding-ada-002";
         private const int ModelDimensions = 1536;
+        private const string SemanticSearchConfigName = "my-semantic-config";
 
         public static async Task Main(string[] args)
         {
@@ -50,6 +51,9 @@ namespace Azure.Search.Documents.Tests.Samples
 
             //-------Simple Hybrid Search-------------------
             await SimpleHybridSearch(searchClient, openAIClient);
+
+            //-------Semantic Hybrid Search-------------------
+            await SemanticHybridSearch(searchClient, openAIClient);
         }
 
         internal static async Task<IReadOnlyList<float>> VectorizeAsync(OpenAIClient openAIClient, string text)
@@ -57,7 +61,6 @@ namespace Azure.Search.Documents.Tests.Samples
             EmbeddingsOptions embeddingsOptions = new(text);
             Embeddings embeddings = await openAIClient.GetEmbeddingsAsync(ModelName, embeddingsOptions);
 
-            // TODO: ToList() is unnecessarily expensive. We need to rationalize the Open AI output and Search input before GA.
             return embeddings.Data[0].Embedding;
         }
 
@@ -67,13 +70,6 @@ namespace Azure.Search.Documents.Tests.Samples
 
             SearchIndex searchIndex = new(name)
             {
-                VectorSearch = new()
-                {
-                    AlgorithmConfigurations =
-                    {
-                        new VectorSearchAlgorithmConfiguration(vectorSearchConfigName, "hnsw")
-                    }
-                },
                 Fields =
                 {
                     new SimpleField("HotelId", SearchFieldDataType.String) { IsKey = true, IsFilterable = true, IsSortable = true, IsFacetable = true },
@@ -86,7 +82,33 @@ namespace Azure.Search.Documents.Tests.Samples
                         VectorSearchConfiguration = vectorSearchConfigName
                     },
                     new SearchableField("Category") { IsFilterable = true, IsSortable = true, IsFacetable = true }
-                }
+                },
+                VectorSearch = new()
+                {
+                    AlgorithmConfigurations =
+                    {
+                        new VectorSearchAlgorithmConfiguration(vectorSearchConfigName, "hnsw")
+                    }
+                },
+                SemanticSettings = new()
+                {
+                    Configurations =
+                    {
+                       new SemanticConfiguration(SemanticSearchConfigName, new()
+                       {
+                           TitleField = new(){ FieldName = "HotelName" },
+                           ContentFields =
+                           {
+                               new() { FieldName = "Description" }
+                           },
+                           KeywordFields =
+                           {
+                               new() { FieldName = "Category" }
+                           }
+
+                       })
+                    }
+                },
             };
 
             return searchIndex;
@@ -157,6 +179,37 @@ namespace Azure.Search.Documents.Tests.Samples
                     {
                         Vector = vector,
                         Select = { "HotelId", "HotelName" },
+                    });
+
+            int count = 0;
+            await foreach (SearchResult<Hotel> result in response.GetResultsAsync())
+            {
+                count++;
+                Hotel doc = result.Document;
+                Console.WriteLine($"{doc.HotelId}: {doc.HotelName}");
+            }
+            Assert.AreEqual(4, count); // HotelId - 3, 1, 5, 2
+        }
+
+        internal static async Task SemanticHybridSearch(SearchClient client, OpenAIClient openAIClient)
+        {
+            var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
+            Assert.NotNull(vectorizedResult);
+            Assert.GreaterOrEqual(vectorizedResult.Count, 1);
+
+            var vector = new SearchQueryVector { Value = vectorizedResult, K = 3, Fields = "DescriptionVector" };
+            SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
+                    "Top hotels in town",
+                    new SearchOptions
+                    {
+                        Vector = vector,
+                        Select = { "HotelId", "HotelName" },
+                        QueryType = SearchQueryType.Semantic,
+                        QueryLanguage = QueryLanguage.EnUs,
+                        SemanticConfigurationName = SemanticSearchConfigName,
+                        QueryCaption = QueryCaptionType.Extractive,
+                       // QueryAnswer = QueryAnswerType.Extractive,
+                        QueryCaptionHighlightEnabled = true
                     });
 
             int count = 0;
