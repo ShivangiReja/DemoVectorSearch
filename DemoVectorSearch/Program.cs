@@ -202,7 +202,7 @@ namespace Azure.Search.Documents.Tests.Samples
 
             var vector = new SearchQueryVector { Value = vectorizedResult, K = 3, Fields = "DescriptionVector" };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
-                    "Top hotels in town",
+                    "Is there any luxury hotel in town?",
                     new SearchOptions
                     {
                         Vector = vector,
@@ -211,12 +211,20 @@ namespace Azure.Search.Documents.Tests.Samples
                         QueryLanguage = QueryLanguage.EnUs,
                         SemanticConfigurationName = SemanticSearchConfigName,
                         QueryCaption = QueryCaptionType.Extractive,
-                       // QueryAnswer = QueryAnswerType.Extractive,
+                        QueryAnswer = QueryAnswerType.Extractive,
                         QueryCaptionHighlightEnabled = true
                     });
 
             int count = 0;
             Console.WriteLine($"\nSemantic Hybrid Search Results:");
+
+            Console.WriteLine($"\nQuery Answer:");
+            foreach (AnswerResult result in response.Answers)
+            {
+                Console.WriteLine($"Answer Highlights: {result.Highlights}");
+                Console.WriteLine($"Answer Text: {result.Text}");
+            }
+
             await foreach (SearchResult<Hotel> result in response.GetResultsAsync())
             {
                 count++;
@@ -226,7 +234,7 @@ namespace Azure.Search.Documents.Tests.Samples
                 if (result.Captions != null)
                 {
                     var caption = result.Captions.FirstOrDefault();
-                    if(caption.Highlights != null && caption.Highlights != "")
+                    if (caption.Highlights != null && caption.Highlights != "")
                     {
                         Console.WriteLine($"Caption Highlights: {caption.Highlights}");
                     }
@@ -237,7 +245,7 @@ namespace Azure.Search.Documents.Tests.Samples
                 }
             }
 
-            Assert.AreEqual(4, count); // HotelId - 1, 2, 5, 3
+            Assert.AreEqual(5, count); // HotelId - 1, 5, 3, 4, 2
         }
 
         internal class Hotel
