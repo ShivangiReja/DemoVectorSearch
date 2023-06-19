@@ -6,9 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Azure.Core" Version="1.32.0" />
+    <PackageReference Include="Azure.Core" Version="1.33.0" />
     <PackageReference Include="Azure.AI.OpenAI" Version="1.0.0-beta.5" />
-    <PackageReference Include="Azure.Search.Documents" Version="11.5.0-alpha.20230522.2" />
+    <PackageReference Include="Azure.Search.Documents" Version="11.5.0-alpha.20230619.1" />
     <PackageReference Include="NUnit" Version="3.13.3" />
   </ItemGroup>
 
