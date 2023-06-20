@@ -56,64 +56,6 @@ namespace Azure.Search.Documents.Tests.Samples
             await SemanticHybridSearch(searchClient, openAIClient);
         }
 
-        internal static async Task<IReadOnlyList<float>> VectorizeAsync(OpenAIClient openAIClient, string text)
-        {
-            EmbeddingsOptions embeddingsOptions = new(text);
-            Embeddings embeddings = await openAIClient.GetEmbeddingsAsync(ModelName, embeddingsOptions);
-
-            return embeddings.Data[0].Embedding;
-        }
-
-        internal static SearchIndex GetHotelIndex(string name)
-        {
-            string vectorSearchConfigName = "my-vector-config";
-
-            SearchIndex searchIndex = new(name)
-            {
-                Fields =
-                {
-                    new SimpleField("HotelId", SearchFieldDataType.String) { IsKey = true, IsFilterable = true, IsSortable = true, IsFacetable = true },
-                    new SearchableField("HotelName") { IsFilterable = true, IsSortable = true },
-                    new SearchableField("Description") { IsFilterable = true },
-                    new SearchField("DescriptionVector", SearchFieldDataType.Collection(SearchFieldDataType.Single))
-                    {
-                        IsSearchable = true,
-                        VectorSearchDimensions = ModelDimensions,
-                        VectorSearchConfiguration = vectorSearchConfigName
-                    },
-                    new SearchableField("Category") { IsFilterable = true, IsSortable = true, IsFacetable = true }
-                },
-                VectorSearch = new()
-                {
-                    AlgorithmConfigurations =
-                    {
-                        new HnswVectorSearchAlgorithmConfiguration(vectorSearchConfigName)
-                    }
-                },
-                SemanticSettings = new()
-                {
-                    Configurations =
-                    {
-                       new SemanticConfiguration(SemanticSearchConfigName, new()
-                       {
-                           TitleField = new(){ FieldName = "HotelName" },
-                           ContentFields =
-                           {
-                               new() { FieldName = "Description" }
-                           },
-                           KeywordFields =
-                           {
-                               new() { FieldName = "Category" }
-                           }
-
-                       })
-                    }
-                },
-            };
-
-            return searchIndex;
-        }
-
         internal static async Task SingleVectorSearch(SearchClient client, OpenAIClient openAIClient)
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
@@ -248,6 +190,65 @@ namespace Azure.Search.Documents.Tests.Samples
             Assert.AreEqual(5, count); // HotelId - 1, 5, 3, 4, 2
         }
 
+        /// <summary> Get a <see cref="SearchIndex"/> for the Hotels sample data. </summary>
+        internal static SearchIndex GetHotelIndex(string name)
+        {
+            string vectorSearchConfigName = "my-vector-config";
+
+            SearchIndex searchIndex = new(name)
+            {
+                Fields =
+                {
+                    new SimpleField("HotelId", SearchFieldDataType.String) { IsKey = true, IsFilterable = true, IsSortable = true, IsFacetable = true },
+                    new SearchableField("HotelName") { IsFilterable = true, IsSortable = true },
+                    new SearchableField("Description") { IsFilterable = true },
+                    new SearchField("DescriptionVector", SearchFieldDataType.Collection(SearchFieldDataType.Single))
+                    {
+                        IsSearchable = true,
+                        VectorSearchDimensions = ModelDimensions,
+                        VectorSearchConfiguration = vectorSearchConfigName
+                    },
+                    new SearchableField("Category") { IsFilterable = true, IsSortable = true, IsFacetable = true }
+                },
+                VectorSearch = new()
+                {
+                    AlgorithmConfigurations =
+                    {
+                        new HnswVectorSearchAlgorithmConfiguration(vectorSearchConfigName)
+                    }
+                },
+                SemanticSettings = new()
+                {
+                    Configurations =
+                    {
+                       new SemanticConfiguration(SemanticSearchConfigName, new()
+                       {
+                           TitleField = new(){ FieldName = "HotelName" },
+                           ContentFields =
+                           {
+                               new() { FieldName = "Description" }
+                           },
+                           KeywordFields =
+                           {
+                               new() { FieldName = "Category" }
+                           }
+
+                       })
+                    }
+                },
+            };
+
+            return searchIndex;
+        }
+
+        internal static async Task<IReadOnlyList<float>> VectorizeAsync(OpenAIClient openAIClient, string text)
+        {
+            EmbeddingsOptions embeddingsOptions = new(text);
+            Embeddings embeddings = await openAIClient.GetEmbeddingsAsync(ModelName, embeddingsOptions);
+
+            return embeddings.Data[0].Embedding;
+        }
+
         internal class Hotel
         {
             public string HotelId { get; set; }
@@ -267,9 +268,7 @@ namespace Azure.Search.Documents.Tests.Samples
             public override int GetHashCode() => HotelId?.GetHashCode() ?? 0;
         }
 
-        /// <summary>
-        /// Get Sample documents.
-        /// </summary>
+        /// <summary> Get Sample documents. </summary>
         internal static async Task<Hotel[]> GetHotelDocumentsAsync(OpenAIClient openAIClient)
         {
             return new[]
