@@ -60,7 +60,7 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.GreaterOrEqual(vectorizedResult.Count, 1);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
             await Task.Delay(TimeSpan.FromSeconds(1));
 
             var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
@@ -87,7 +87,7 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.GreaterOrEqual(vectorizedResult.Count, 1);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
 
             var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
@@ -114,7 +114,7 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.GreaterOrEqual(vectorizedResult.Count, 1);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
 
             var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
@@ -140,7 +140,7 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.GreaterOrEqual(vectorizedResult.Count, 1);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
 
             var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
