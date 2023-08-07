@@ -63,12 +63,12 @@ namespace Azure.Search.Documents.Tests.Samples
             Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
             await Task.Delay(TimeSpan.FromSeconds(1));
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
+            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
                    null,
                    new SearchOptions
                    {
-                       Vector = vector,
+                       Vectors = { vector },
                        Select = { "HotelId", "HotelName" }
                    });
 
@@ -89,12 +89,12 @@ namespace Azure.Search.Documents.Tests.Samples
             Assert.NotNull(vectorizedResult);
             Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
+            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
                     null,
                     new SearchOptions
                     {
-                        Vector = vector,
+                        Vectors = { vector },
                         Filter = "Category eq 'Luxury'",
                         Select = { "HotelId", "HotelName", "Category" }
                     });
@@ -116,12 +116,12 @@ namespace Azure.Search.Documents.Tests.Samples
             Assert.NotNull(vectorizedResult);
             Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
+            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
                     "Top hotels in town",
                     new SearchOptions
                     {
-                        Vector = vector,
+                        Vectors = { vector },
                         Select = { "HotelId", "HotelName" },
                     });
 
@@ -142,12 +142,12 @@ namespace Azure.Search.Documents.Tests.Samples
             Assert.NotNull(vectorizedResult);
             Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = "DescriptionVector" };
+            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
                     "Is there any luxury hotel in town?",
                     new SearchOptions
                     {
-                        Vector = vector,
+                        Vectors = { vector },
                         Select = { "HotelId", "HotelName", "Description", "Category" },
                         QueryType = SearchQueryType.Semantic,
                         QueryLanguage = QueryLanguage.EnUs,
