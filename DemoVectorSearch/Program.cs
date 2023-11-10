@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Azure.Search.Documents.Indexes;
 using Azure.Search.Documents.Indexes.Models;
 using Azure.AI.OpenAI;
-using System.Collections.Generic;
 using System.Linq;
 using Azure.Search.Documents.Models;
 using NUnit.Framework;
@@ -18,6 +17,8 @@ namespace Azure.Search.Documents.Tests.Samples
         private const string ModelName = "text-embedding-ada-002";
         private const int ModelDimensions = 1536;
         private const string SemanticSearchConfigName = "my-semantic-config";
+        private const string VectorSearchConfigName = "my-vector-config";
+        private const string VectorSearchProfileName = "my-vector-profile";
 
         public static async Task Main(string[] args)
         {
@@ -26,18 +27,18 @@ namespace Azure.Search.Documents.Tests.Samples
 
             //-----------Create Index---------------------
             endpoint = new(Environment.GetEnvironmentVariable("SEARCH_ENDPOINT"));
-            credential = new(Environment.GetEnvironmentVariable("SEARCH_ADMIN_API_KEY"));
+            credential = new(Environment.GetEnvironmentVariable("SEARCH_API_KEY"));
             SearchIndexClient indexClient = new(endpoint, credential);
 
-            var indexName = "vectorsearchindex";
+            var indexName = "myvectorsearchindex";
             SearchIndex index = GetHotelIndex(indexName);
             await indexClient.CreateIndexAsync(index);
 
             //--------Upload data------------------------
             SearchClient searchClient = new(endpoint, indexName, credential);
 
-            endpoint = new(Environment.GetEnvironmentVariable("OpenAIEndpoint"));
-            credential = new(Environment.GetEnvironmentVariable("OpenAIKey"));
+            endpoint = new(Environment.GetEnvironmentVariable("OPENAI_ENDPOINT"));
+            credential = new(Environment.GetEnvironmentVariable("OPENAI_KEY"));
             OpenAIClient openAIClient = new(endpoint, credential);
 
             Hotel[] hotelDocuments = await GetHotelDocumentsAsync(openAIClient);
@@ -60,17 +61,18 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Length);
             await Task.Delay(TimeSpan.FromSeconds(1));
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
-                   null,
-                   new SearchOptions
-                   {
-                       Vectors = { vector },
-                       Select = { "HotelId", "HotelName" }
-                   });
+                    new SearchOptions
+                    {
+                        VectorSearch = new()
+                        {
+                            Queries = { new VectorizedQuery(vectorizedResult) { KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } } }
+                        },
+                        Select = { "HotelId", "HotelName" }
+                    });
 
             int count = 0;
             Console.WriteLine($"\nSingle Vector Search Results:");
@@ -87,14 +89,15 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Length);
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
-                    null,
                     new SearchOptions
                     {
-                        Vectors = { vector },
+                        VectorSearch = new()
+                        {
+                            Queries = { new VectorizedQuery(vectorizedResult) { KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } } }
+                        },
                         Filter = "Category eq 'Luxury'",
                         Select = { "HotelId", "HotelName", "Category" }
                     });
@@ -114,16 +117,18 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Length);
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
-                    "Top hotels in town",
-                    new SearchOptions
-                    {
-                        Vectors = { vector },
-                        Select = { "HotelId", "HotelName" },
-                    });
+                        "Top hotels in town",
+                        new SearchOptions
+                        {
+                            VectorSearch = new()
+                            {
+                                Queries = { new VectorizedQuery(vectorizedResult) { KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } } }
+                            },
+                            Select = { "HotelId", "HotelName" },
+                        });
 
             int count = 0;
             Console.WriteLine($"\nSimple Hybrid Search Results:");
@@ -140,28 +145,31 @@ namespace Azure.Search.Documents.Tests.Samples
         {
             var vectorizedResult = await VectorizeAsync(openAIClient, "Top hotels in town");
             Assert.NotNull(vectorizedResult);
-            Assert.AreEqual(ModelDimensions, vectorizedResult.Count);
+            Assert.AreEqual(ModelDimensions, vectorizedResult.Length);
 
-            var vector = new SearchQueryVector { Value = vectorizedResult, KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } };
             SearchResults<Hotel> response = await client.SearchAsync<Hotel>(
-                    "Is there any luxury hotel in town?",
-                    new SearchOptions
-                    {
-                        Vectors = { vector },
-                        Select = { "HotelId", "HotelName", "Description", "Category" },
-                        QueryType = SearchQueryType.Semantic,
-                        QueryLanguage = QueryLanguage.EnUs,
-                        SemanticConfigurationName = SemanticSearchConfigName,
-                        QueryCaption = QueryCaptionType.Extractive,
-                        QueryAnswer = QueryAnswerType.Extractive,
-                        QueryCaptionHighlightEnabled = true
-                    });
+                    "Is there any hotel located on the main commercial artery of the city in the heart of New York?",
+                     new SearchOptions
+                     {
+                         VectorSearch = new()
+                         {
+                             Queries = { new VectorizedQuery(vectorizedResult) { KNearestNeighborsCount = 3, Fields = { "DescriptionVector" } } }
+                         },
+                         SemanticSearch = new()
+                         {
+                             SemanticConfigurationName = SemanticSearchConfigName,
+                             QueryCaption = new(QueryCaptionType.Extractive) { HighlightEnabled = true },
+                             QueryAnswer = new(QueryAnswerType.Extractive)
+                         },
+                         QueryType = SearchQueryType.Semantic,
+                         Select = { "HotelId", "HotelName", "Description", "Category" },
+                     });
 
             int count = 0;
             Console.WriteLine($"\nSemantic Hybrid Search Results:");
 
             Console.WriteLine($"\nQuery Answer:");
-            foreach (AnswerResult result in response.Answers)
+            foreach (QueryAnswerResult result in response.SemanticSearch.Answers)
             {
                 Console.WriteLine($"Answer Highlights: {result.Highlights}");
                 Console.WriteLine($"Answer Text: {result.Text}");
@@ -173,9 +181,9 @@ namespace Azure.Search.Documents.Tests.Samples
                 Hotel doc = result.Document;
                 Console.WriteLine($"\nHotelId: {doc.HotelId} \n HotelName: {doc.HotelName} \n Category: {doc.Category} \n Description: {doc.Description}");
 
-                if (result.Captions != null)
+                if (result.SemanticSearch.Captions != null)
                 {
-                    var caption = result.Captions.FirstOrDefault();
+                    var caption = result.SemanticSearch.Captions.FirstOrDefault();
                     if (caption.Highlights != null && caption.Highlights != "")
                     {
                         Console.WriteLine($"Caption Highlights: {caption.Highlights}");
@@ -187,14 +195,12 @@ namespace Azure.Search.Documents.Tests.Samples
                 }
             }
 
-            Assert.AreEqual(5, count); // HotelId - 1, 5, 3, 4, 2
+            Assert.AreEqual(4, count); // HotelId - 5, 3, 2, 1
         }
 
         /// <summary> Get a <see cref="SearchIndex"/> for the Hotels sample data. </summary>
         internal static SearchIndex GetHotelIndex(string name)
         {
-            string vectorSearchConfigName = "my-vector-config";
-
             SearchIndex searchIndex = new(name)
             {
                 Fields =
@@ -202,49 +208,47 @@ namespace Azure.Search.Documents.Tests.Samples
                     new SimpleField("HotelId", SearchFieldDataType.String) { IsKey = true, IsFilterable = true, IsSortable = true, IsFacetable = true },
                     new SearchableField("HotelName") { IsFilterable = true, IsSortable = true },
                     new SearchableField("Description") { IsFilterable = true },
-                    new SearchField("DescriptionVector", SearchFieldDataType.Collection(SearchFieldDataType.Single))
-                    {
-                        IsSearchable = true,
-                        VectorSearchDimensions = ModelDimensions,
-                        VectorSearchConfiguration = vectorSearchConfigName
-                    },
+                    new VectorSearchField("DescriptionVector", ModelDimensions, VectorSearchProfileName),
                     new SearchableField("Category") { IsFilterable = true, IsSortable = true, IsFacetable = true }
                 },
                 VectorSearch = new()
                 {
-                    AlgorithmConfigurations =
+                    Profiles =
                     {
-                        new HnswVectorSearchAlgorithmConfiguration(vectorSearchConfigName)
+                        new VectorSearchProfile(VectorSearchProfileName, VectorSearchConfigName)
+                    },
+                    Algorithms =
+                    {
+                        new HnswAlgorithmConfiguration(VectorSearchConfigName)
                     }
                 },
-                SemanticSettings = new()
+                SemanticSearch = new()
                 {
                     Configurations =
                     {
-                       new SemanticConfiguration(SemanticSearchConfigName, new()
-                       {
-                           TitleField = new(){ FieldName = "HotelName" },
-                           ContentFields =
-                           {
-                               new() { FieldName = "Description" }
-                           },
-                           KeywordFields =
-                           {
-                               new() { FieldName = "Category" }
-                           }
-
-                       })
+                        new SemanticConfiguration(SemanticSearchConfigName, new()
+                        {
+                            TitleField = new SemanticField("HotelName"),
+                            ContentFields =
+                            {
+                                new SemanticField("Description")
+                            },
+                            KeywordsFields =
+                            {
+                                new SemanticField("Category")
+                            }
+                        })
                     }
-                },
+                }
             };
 
             return searchIndex;
         }
 
-        internal static async Task<IReadOnlyList<float>> VectorizeAsync(OpenAIClient openAIClient, string text)
+        internal static async Task<ReadOnlyMemory<float>> VectorizeAsync(OpenAIClient openAIClient, string text)
         {
-            EmbeddingsOptions embeddingsOptions = new(text);
-            Embeddings embeddings = await openAIClient.GetEmbeddingsAsync(ModelName, embeddingsOptions);
+            EmbeddingsOptions embeddingsOptions = new(ModelName, new string[] { text });
+            Embeddings embeddings = await openAIClient.GetEmbeddingsAsync(embeddingsOptions);
 
             return embeddings.Data[0].Embedding;
         }
@@ -254,18 +258,8 @@ namespace Azure.Search.Documents.Tests.Samples
             public string HotelId { get; set; }
             public string HotelName { get; set; }
             public string Description { get; set; }
-            public IReadOnlyList<float> DescriptionVector { get; set; }
+            public ReadOnlyMemory<float> DescriptionVector { get; set; }
             public string Category { get; set; }
-
-            public override bool Equals(object obj) =>
-                obj is Hotel other &&
-                HotelId == other.HotelId &&
-                HotelName == other.HotelName &&
-                Description == other.Description &&
-                DescriptionVector == other.DescriptionVector &&
-                Category == other.Category;
-
-            public override int GetHashCode() => HotelId?.GetHashCode() ?? 0;
         }
 
         /// <summary> Get Sample documents. </summary>
